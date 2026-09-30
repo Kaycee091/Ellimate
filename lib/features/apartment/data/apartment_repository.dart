@@ -68,46 +68,49 @@ class ApartmentRepository {
     try {
       final code = inviteCode.trim().toUpperCase();
 
-      // Find apartment
-      final apartmentData = await _supabase
-          .from('apartments')
-          .select()
-          .eq('invite_code', code)
-          .maybeSingle();
+      // Call secure join_apartment_by_code RPC
+      final data = await _supabase.rpc('join_apartment_by_code', params: {
+        'p_invite_code': code,
+        'p_user_id': userId,
+      });
 
-      if (apartmentData == null) {
+      if (data == null) {
         throw const NotFoundException(
           message: 'This invite code is invalid.',
         );
       }
 
-      final apartment = Apartment.fromJson(apartmentData);
-
-      // Check if already a member
-      final existing = await _supabase
-          .from('apartment_members')
-          .select('id')
-          .eq('apartment_id', apartment.id)
-          .eq('user_id', userId)
-          .maybeSingle();
-
-      if (existing != null) {
+      return Apartment.fromJson(data as Map<String, dynamic>);
+    } on PostgrestException catch (e) {
+      final msg = e.message.toLowerCase();
+      if (msg.contains('invalid_invite_code')) {
+        throw const NotFoundException(
+          message: 'This invite code is invalid.',
+        );
+      } else if (msg.contains('already_member')) {
+        throw const ConflictException(
+          message: 'You are already a member of this apartment.',
+        );
+      } else if (msg.contains('not_authenticated') || msg.contains('unauthorized')) {
+        throw const AppAuthException(message: 'Authentication required.');
+      }
+      throw DatabaseException(
+        message: 'Unable to join apartment. Please try again.',
+        originalError: e,
+      );
+    } on AppException {
+      rethrow;
+    } catch (e) {
+      final msg = e.toString().toLowerCase();
+      if (msg.contains('invalid_invite_code')) {
+        throw const NotFoundException(
+          message: 'This invite code is invalid.',
+        );
+      } else if (msg.contains('already_member')) {
         throw const ConflictException(
           message: 'You are already a member of this apartment.',
         );
       }
-
-      // Create membership
-      await _supabase.from('apartment_members').insert({
-        'apartment_id': apartment.id,
-        'user_id': userId,
-        'role': 'member',
-      });
-
-      return apartment;
-    } on AppException {
-      rethrow;
-    } catch (e) {
       throw DatabaseException(
         message: 'Unable to join apartment. Please try again.',
         originalError: e,

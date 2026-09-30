@@ -72,23 +72,25 @@ flutter pub get
 3. Create a `profile-images` storage bucket in Supabase Dashboard → Storage:
    - Set it to **Public**.
    - Add storage policies (see the SQL migration comments at the bottom of the file).
-4. Copy your **Project URL** and **anon key** from Settings → API.
+4. Copy your **anon/publishable key** from Supabase Dashboard → Settings → API.
 
 ### 4. Set environment variables
 
-You can pass Supabase credentials at build time using `--dart-define`:
+The project URL is pre-configured to `https://zkrhigrtyyxfqkpqblfh.supabase.co`.
 
-```bash
-flutter run \
-  --dart-define=SUPABASE_URL=https://your-project.supabase.co \
-  --dart-define=SUPABASE_ANON_KEY=your-anon-key
+Add your Supabase anon/publishable key to `.env.json`:
+
+```json
+{
+  "SUPABASE_URL": "https://zkrhigrtyyxfqkpqblfh.supabase.co",
+  "SUPABASE_ANON_KEY": "your-anon-or-publishable-key"
+}
 ```
 
-Or create a `.env.sh` helper (do NOT commit this):
+Or pass it via `--dart-define`:
 
 ```bash
-export SUPABASE_URL=https://your-project.supabase.co
-export SUPABASE_ANON_KEY=your-anon-key
+flutter run --dart-define=SUPABASE_ANON_KEY=your-anon-or-publishable-key
 ```
 
 ### 5. Configure Firebase (optional — for push notifications)
@@ -107,12 +109,16 @@ export SUPABASE_ANON_KEY=your-anon-key
 
 ## 🏃 Running the App
 
-### Development mode
+### Development mode (recommended)
 
 ```bash
-flutter run \
-  --dart-define=SUPABASE_URL=https://your-project.supabase.co \
-  --dart-define=SUPABASE_ANON_KEY=your-anon-key
+flutter run --dart-define-from-file=.env.json
+```
+
+Or directly via CLI flag:
+
+```bash
+flutter run --dart-define=SUPABASE_ANON_KEY=your-anon-key
 ```
 
 ### Run static analysis

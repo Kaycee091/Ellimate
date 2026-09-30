@@ -1,9 +1,9 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../core/services/providers.dart';
-import '../features/auth/domain/auth_providers.dart';
 import '../features/auth/presentation/splash_screen.dart';
 import '../features/auth/presentation/welcome_screen.dart';
 import '../features/auth/presentation/login_screen.dart';
@@ -33,22 +33,60 @@ import '../features/notifications/presentation/notifications_screen.dart';
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 final _shellNavigatorKey = GlobalKey<NavigatorState>();
 
+// -----------------------------------------------------------------------
+// Auth state change notifier for GoRouter's refreshListenable.
+//
+// This ChangeNotifier listens to Supabase auth state events and calls
+// notifyListeners() so GoRouter re-evaluates its redirect function.
+//
+// CRITICAL: This pattern avoids recreating the GoRouter instance when
+// auth state changes. Recreating the router on Flutter Web resets the
+// browser URL to initialLocation ('/'), which appears as a page refresh.
+// -----------------------------------------------------------------------
+class _AuthStateNotifier extends ChangeNotifier {
+  _AuthStateNotifier() {
+    _subscription =
+        Supabase.instance.client.auth.onAuthStateChange.listen((_) {
+      notifyListeners();
+    });
+  }
+
+  late final StreamSubscription<AuthState> _subscription;
+
+  @override
+  void dispose() {
+    _subscription.cancel();
+    super.dispose();
+  }
+}
+
 final routerProvider = Provider<GoRouter>((ref) {
-  ref.watch(authStateProvider);
+  // Create the notifier once; GoRouter will call notifyListeners internally
+  // to re-run the redirect — without tearing down and rebuilding the router.
+  final authNotifier = _AuthStateNotifier();
+  ref.onDispose(authNotifier.dispose);
 
   return GoRouter(
     navigatorKey: _rootNavigatorKey,
     initialLocation: '/',
     debugLogDiagnostics: false,
+    refreshListenable: authNotifier,
     redirect: (context, state) async {
       final location = state.matchedLocation;
 
-      // Check auth state
+      // A user is only considered authenticated when they have an active
+      // session (i.e. email has been confirmed and a JWT exists).
       final currentUser = Supabase.instance.client.auth.currentUser;
       final isAuthenticated = currentUser != null;
 
       // Public routes that don't need auth
-      final publicRoutes = ['/welcome', '/login', '/register', '/forgot-password', '/'];
+      final publicRoutes = [
+        '/welcome',
+        '/login',
+        '/register',
+        '/forgot-password',
+        '/',
+      ];
       final isPublicRoute = publicRoutes.contains(location);
 
       if (!isAuthenticated && !isPublicRoute) {

@@ -48,6 +48,9 @@ build/
 .env
 .env.*
 *.env
+.env.json
+!.env.example
+!.env.json.example
 **/google-services.json
 **/GoogleService-Info.plist
 lib/firebase_options.dart

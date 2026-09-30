@@ -100,7 +100,11 @@ class LaundryRepository {
       rethrow;
     } catch (e) {
       final msg = e.toString().toLowerCase();
-      if (msg.contains('unique') || msg.contains('duplicate') || msg.contains('conflict')) {
+      if (msg.contains('unique') ||
+          msg.contains('duplicate') ||
+          msg.contains('conflict') ||
+          msg.contains('slot_taken') ||
+          msg.contains('exclusion')) {
         throw const ConflictException(
           message: 'This laundry slot is no longer available.',
         );
